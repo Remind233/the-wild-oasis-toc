@@ -2,6 +2,7 @@ import { PencilSquareIcon } from "@heroicons/react/24/solid";
 import { format, formatDistance, isPast, isToday, parseISO } from "date-fns";
 import DeleteReservation from "./DeleteReservation";
 import Image from "next/image";
+import Link from "next/link";
 
 export const formatDistanceFromNow = (dateStr: string) =>
   formatDistance(parseISO(dateStr), new Date(), {
@@ -9,35 +10,39 @@ export const formatDistanceFromNow = (dateStr: string) =>
   }).replace("about ", "");
 
 interface Booking {
-  id: number; // 预订唯一标识
-  guestId: number; // 客人ID
-  startDate: string; // 开始日期，通常为 ISO 字符串（如 "2025-03-05"）
-  endDate: string; // 结束日期
-  numNights: number; // 住宿晚数
-  totalPrice: number; // 总价格
-  numGuests: number; // 客人人数
-  status: string; // 预订状态（如 "checked-in", "pending" 等）
-  created_at: string; // 创建时间
+  id: number;
+  guestId: number;
+  startDate: string;
+  endDate: string;
+  numNights: number;
+  totalPrice: number;
+  numGuests: number;
+  created_at: string;
   cabins: {
-    // 关联的小屋信息
-    name: string; // 小屋名称
-    image: string; // 小屋图片URL
+    name: string;
+    image: string;
   };
 }
 
-function ReservationCard({ booking }: { booking: Booking }) {
+function ReservationCard({
+  booking,
+  onDelete,
+}: {
+  booking: Booking;
+  onDelete: (id: number) => void;
+}) {
   const {
     id,
-    // guestId,
+    guestId,
     startDate,
     endDate,
     numNights,
     totalPrice,
     numGuests,
-    // status,
     created_at,
-    cabins: { name, image },
+    cabins,
   } = booking;
+  const { name, image } = cabins;
 
   return (
     <div className="flex border border-primary-800">
@@ -87,14 +92,18 @@ function ReservationCard({ booking }: { booking: Booking }) {
       </div>
 
       <div className="flex flex-col border-l border-primary-800 w-[100px]">
-        <a
-          href={`/account/reservations/edit/${id}`}
-          className="group flex items-center gap-2 uppercase text-xs font-bold text-primary-300 border-b border-primary-800 flex-grow px-3 hover:bg-accent-600 transition-colors hover:text-primary-900"
-        >
-          <PencilSquareIcon className="h-5 w-5 text-primary-600 group-hover:text-primary-800 transition-colors" />
-          <span className="mt-1">Edit</span>
-        </a>
-        <DeleteReservation />
+        {isPast(startDate) ? null : (
+          <>
+            <Link
+              href={`/account/reservations/edit/${id}`}
+              className="group flex items-center gap-2 uppercase text-xs font-bold text-primary-300 border-b border-primary-800 flex-grow px-3 hover:bg-accent-600 transition-colors hover:text-primary-900"
+            >
+              <PencilSquareIcon className="h-5 w-5 text-primary-600 group-hover:text-primary-800 transition-colors" />
+              <span className="mt-1">Edit</span>
+            </Link>
+            <DeleteReservation onDelete={onDelete} bookingId={id} />
+          </>
+        )}
         {/* bookingId={id} */}
       </div>
     </div>
