@@ -1,18 +1,19 @@
+import { cache } from "react";
 import { eachDayOfInterval } from "date-fns";
 import { supabase } from "./supabase";
 import { notFound } from "next/navigation";
+
 /////////////
 // GET
+// 使用 React.cache() 包装所有只读数据查询函数，
+// 保证同一次服务端渲染中相同参数的调用只触发一次数据库请求。
 
-export async function getCabin(id: number) {
+async function _getCabin(id: number) {
   const { data, error } = await supabase
     .from("cabins")
     .select("*")
     .eq("id", id)
     .single();
-
-  // For testing
-  // await new Promise((res) => setTimeout(res, 1000));
 
   if (error) {
     console.error(error);
@@ -21,8 +22,9 @@ export async function getCabin(id: number) {
 
   return data;
 }
+export const getCabin = cache(_getCabin);
 
-export async function getCabinPrice(id: number) {
+async function _getCabinPrice(id: number) {
   const { data, error } = await supabase
     .from("cabins")
     .select("regularPrice, discount")
@@ -35,8 +37,9 @@ export async function getCabinPrice(id: number) {
 
   return data;
 }
+export const getCabinPrice = cache(_getCabinPrice);
 
-export const getCabins = async function () {
+async function _getCabins() {
   const { data, error } = await supabase
     .from("cabins")
     .select("id, name, maxCapacity, regularPrice, discount, description, image")
@@ -48,21 +51,12 @@ export const getCabins = async function () {
   }
 
   return data;
-};
-
-// Guests are uniquely identified by their email address
-export async function getGuest(email: string) {
-  const { data, error } = await supabase
-    .from("guests")
-    .select("*")
-    .eq("email", email)
-    .single();
-
-  // No error here! We handle the possibility of no guest in the sign in callback
-  return data;
 }
+export const getCabins = cache(_getCabins);
 
-export async function getBooking(id: number) {
+
+
+async function _getBooking(id: number) {
   const { data, error, count } = await supabase
     .from("bookings")
     .select("*")
@@ -76,8 +70,12 @@ export async function getBooking(id: number) {
 
   return data;
 }
+export const getBooking = cache(_getBooking);
 
-export async function getBookings(guestId: number) {
+async function _getBookings(guestId: number, page: number = 1, limit: number = 5) {
+  const from = (page - 1) * limit;
+  const to = from + limit - 1;
+
   const { data, error, count } = await supabase
     .from("bookings")
     // We actually also need data on the cabins as well. But let's ONLY take the data that we actually need, in order to reduce downloaded data.
@@ -85,7 +83,8 @@ export async function getBookings(guestId: number) {
       "id, created_at, startDate, endDate, numNights, numGuests, totalPrice, guestId, cabinId, cabins(name, image)",
     )
     .eq("guestId", guestId)
-    .order("startDate");
+    .order("startDate")
+    .range(from, to);
 
   if (error) {
     console.error(error);
@@ -97,8 +96,9 @@ export async function getBookings(guestId: number) {
     cabins: booking.cabins as unknown as { name: string; image: string },
   }));
 }
+export const getBookings = cache(_getBookings);
 
-export async function getBookedDatesByCabinId(cabinId: number) {
+async function _getBookedDatesByCabinId(cabinId: number) {
   const today = new Date();
   today.setUTCHours(0, 0, 0, 0);
   const ISOtoday = today.toISOString();
@@ -127,8 +127,9 @@ export async function getBookedDatesByCabinId(cabinId: number) {
 
   return bookedDates;
 }
+export const getBookedDatesByCabinId = cache(_getBookedDatesByCabinId);
 
-export async function getSettings() {
+async function _getSettings() {
   const { data, error } = await supabase.from("settings").select("*").single();
 
   if (error) {
@@ -138,6 +139,7 @@ export async function getSettings() {
 
   return data;
 }
+export const getSettings = cache(_getSettings);
 
 export async function getCountries() {
   try {
@@ -154,17 +156,4 @@ export async function getCountries() {
 /////////////
 // CREATE
 
-export async function createGuest(newGuest: {
-  email: string;
-  fullName: string;
-}) {
-  console.log(newGuest);
-  const { data, error } = await supabase.from("guests").insert([newGuest]);
 
-  if (error) {
-    console.error(error);
-    throw new Error("Guest could not be created");
-  }
-
-  return data;
-}

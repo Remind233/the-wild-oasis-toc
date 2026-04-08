@@ -7,6 +7,8 @@ export default function Page() {
       <Image
         src={bg}
         fill
+        sizes="100vw"
+        priority
         className="object-cover object-top"
         alt="Mountains and forests with two cabins"
         placeholder="blur" //仅适用于静态导入的img

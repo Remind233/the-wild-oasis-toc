@@ -6,9 +6,23 @@ import {
   isSameDay,
   isWithinInterval,
 } from "date-fns";
-import { DateRange, DayPicker } from "react-day-picker";
+import { DateRange } from "react-day-picker";
+import dynamic from "next/dynamic";
 import "react-day-picker/dist/style.css";
 import { useReservation } from "./ReservationContext";
+import Spinner from "./Spinner";
+
+const DayPicker = dynamic(
+  () => import("react-day-picker").then((mod) => mod.DayPicker),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="pt-12 place-self-center flex items-center justify-center min-h-[300px]">
+        <Spinner />
+      </div>
+    ),
+  }
+);
 
 interface Settings {
   minBookingLength: number;

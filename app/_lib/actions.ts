@@ -5,6 +5,7 @@ import { auth, signIn, signOut } from "./auth";
 import { supabase } from "./supabase";
 import { getBookings } from "./data-service";
 import { redirect } from "next/navigation";
+import { BookingUpdateSchema, ProfileUpdateSchema } from "./schemas";
 
 export async function signInAction() {
   await signIn("google", { redirectTo: "/account" });
@@ -17,30 +18,27 @@ export async function signOutAction() {
 export async function updateProfileAction(formData: FormData) {
   //认证
   const session = await auth();
-  if (!session) throw new Error("You must be logged in");
+  if (!session) return { error: "You must be logged in" };
 
-  // 2. 提取并验证表单字段
-  const rawNationality = formData.get("nationality");
-  const rawNationalID = formData.get("nationalID");
+  // 2. 提取并使用 Zod 验证表单字段
+  const rawData = {
+    nationality: formData.get("nationality"),
+    nationalID: formData.get("nationalID"),
+  };
 
-  if (typeof rawNationality !== "string" || typeof rawNationalID !== "string") {
-    throw new Error("Invalid form data");
+  const parsed = ProfileUpdateSchema.safeParse(rawData);
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0].message };
   }
 
   // 3. 解析 nationality 字段（格式 "国家名%国旗URL"）
-  const [nationality, countryFlag] = rawNationality.split("%");
-  if (!nationality || !countryFlag) {
-    throw new Error("Invalid nationality format");
-  }
+  const [nationality, countryFlag] = parsed.data.nationality.split("%");
 
-  // 4. 验证 nationalID（6-12位字母数字）
-  if (!/^[a-zA-Z0-9]{6,12}$/.test(rawNationalID)) {
-    throw new Error(
-      "Please provide a valid national ID (6-12 alphanumeric characters)",
-    );
-  }
-
-  const updateData = { nationality, countryFlag, nationalID: rawNationalID };
+  const updateData = {
+    nationality,
+    countryFlag,
+    nationalID: parsed.data.nationalID,
+  };
 
   const { error } = await supabase
     .from("guests")
@@ -49,12 +47,12 @@ export async function updateProfileAction(formData: FormData) {
 
   if (error) {
     console.error("Supabase update error:", error);
-    throw new Error("Guest could not be updated");
+    return { error: "Guest could not be updated" };
   }
 
   // 8. 重新验证页面缓存并重定向
   revalidatePath("/account/profile");
-  redirect("/account/profile");
+  return { success: true };
 }
 
 export async function deleteBooking(bookingId: number) {
@@ -74,7 +72,7 @@ export async function deleteBooking(bookingId: number) {
     .eq("id", bookingId);
 
   if (error) {
-    throw new Error("Booking could not be deleted");
+    return { error: "Booking could not be deleted" };
   }
 
   revalidatePath("/account/reservations");
@@ -94,11 +92,17 @@ export async function updateBooking(formData: FormData) {
   if (!guestBookingIds.includes(bookingId))
     throw new Error("You are not allowed to update this booking");
 
-  //更新数据
-  const updatedData = {
-    numGuests: Number(formData.get("numGuests")),
-    observations: formData.get("observations")?.toString().slice(0, 1000),
-  };
+  //验证并更新数据
+  const parsed = BookingUpdateSchema.safeParse({
+    numGuests: formData.get("numGuests"),
+    observations: formData.get("observations") || "",
+  });
+
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0].message };
+  }
+
+  const updatedData = parsed.data;
 
   //更新
   const { error } = await supabase
@@ -111,7 +115,7 @@ export async function updateBooking(formData: FormData) {
   //错误处理
   if (error) {
     console.error(error);
-    throw new Error("Booking could not be updated");
+    return { error: "Booking could not be updated" };
   }
 
   //重新验证缓存
@@ -136,13 +140,22 @@ export async function createBooking(
 ) {
   console.log(bookingData, formData);
   const session = await auth();
-  if (!session) throw new Error("You must be logged in");
+  if (!session) return { error: "You must be logged in" };
+
+  const parsed = BookingUpdateSchema.safeParse({
+    numGuests: formData.get("numGuests"),
+    observations: formData.get("observations") || "",
+  });
+
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0].message };
+  }
 
   const Booking = {
     ...bookingData,
     guestId: session.user.guestId,
-    numGuests: Number(formData.get("numGuests")),
-    observations: formData.get("observations")?.toString().slice(0, 1000),
+    numGuests: parsed.data.numGuests,
+    observations: parsed.data.observations,
     extraPrice: 0,
     totalPrice: bookingData.cabinPrice,
     isPaid: false,
@@ -154,7 +167,7 @@ export async function createBooking(
 
   if (error) {
     console.error(error);
-    throw new Error("Booking could not be created");
+    return { error: "Booking could not be created" };
   }
 
   //重新验证缓存
@@ -162,4 +175,15 @@ export async function createBooking(
 
   //重定向
   redirect("/cabins/thankyou");
+}
+
+export async function loadMoreBookings(page: number) {
+  const session = await auth();
+  if (!session) return [];
+
+  if (!session?.user?.guestId) return [];
+  // Use page size 5 to match initial load
+  const nextPageBookings = await getBookings(session.user.guestId, page, 5);
+  
+  return nextPageBookings;
 }

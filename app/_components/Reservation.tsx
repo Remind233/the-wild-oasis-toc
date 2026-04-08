@@ -15,15 +15,14 @@ interface Cabin {
 }
 
 async function Reservation({ cabin }: { cabin: Cabin }) {
-  const [settings, bookedDates] = await Promise.all([
+  const [settings, bookedDates, session] = await Promise.all([
     getSettings(),
     getBookedDatesByCabinId(cabin.id),
+    auth(),
   ]);
 
-  const session = await auth();
-
   return (
-    <div className="grid grid-cols-2 border border-primary-800 min-h-[400px]">
+    <div className="grid grid-cols-1 lg:grid-cols-2 border border-primary-800 min-h-[400px]">
       <DateSelector
         settings={settings}
         bookedDates={bookedDates}

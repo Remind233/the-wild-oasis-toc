@@ -1,6 +1,11 @@
 import Reservation from "@/app/_components/Reservation";
 import Spinner from "@/app/_components/Spinner";
-import { getCabin, getCabins } from "@/app/_lib/data-service";
+import {
+  getBookedDatesByCabinId,
+  getCabin,
+  getCabins,
+  getSettings,
+} from "@/app/_lib/data-service";
 import Cabin from "@/app/_components/Cabin";
 import { Suspense } from "react";
 
@@ -32,10 +37,16 @@ export async function generateStaticParams() {
 }
 
 export default async function Page({ params }: CabinPageProps) {
+  // Preloading data to avoid waterfall blocking.
+  // Due to React.cache(), these calls fire the request and cache the Promise.
+  // When Reservation.tsx calls them again, it receives the already-resolving Promise.
+  getSettings();
+  getBookedDatesByCabinId(params.cabinId);
+
   const cabin: Cabins = await getCabin(params.cabinId);
 
   return (
-    <div className="max-w-6xl mx-auto mt-8">
+    <div className="max-w-6xl mx-auto mt-8 px-4 lg:px-0">
       <Cabin cabin={cabin} />
 
       <div>

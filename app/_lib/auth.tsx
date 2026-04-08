@@ -6,7 +6,7 @@ import NextAuth, {
   Session,
 } from "next-auth";
 import Google from "next-auth/providers/google";
-import { createGuest, getGuest } from "./data-service";
+import { createGuest, getGuest } from "./guest-service";
 
 // 扩展 Session 类型以包含 guestId
 declare module "next-auth" {

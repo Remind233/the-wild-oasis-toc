@@ -4,6 +4,7 @@ import { ReactNode, useState } from "react";
 import { updateProfileAction } from "../_lib/actions";
 import SubmitButton from "./SubmitButton";
 import Image from "next/image";
+import toast from "react-hot-toast";
 
 interface Guest {
   countryFlag: string;
@@ -29,8 +30,15 @@ function UpdateProfileForm({
 
   return (
     <form
-      action={updateProfileAction}
-      className="bg-primary-900 py-8 px-12 text-lg flex gap-6 flex-col"
+      action={async (formData) => {
+        const res = await updateProfileAction(formData);
+        if (res?.error) {
+          toast.error(res.error);
+        } else {
+          toast.success("Profile updated successfully!");
+        }
+      }}
+      className="bg-primary-900 py-8 px-6 md:px-12 text-lg flex gap-6 flex-col"
     >
       <div className="space-y-2">
         <label>Full name</label>

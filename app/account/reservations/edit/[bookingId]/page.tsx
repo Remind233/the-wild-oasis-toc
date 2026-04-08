@@ -19,7 +19,10 @@ export default async function Page({
       </h2>
 
       <form
-        action={updateBooking}
+        action={async (formData: FormData) => {
+          "use server";
+          await updateBooking(formData);
+        }}
         className="bg-primary-900 py-8 px-12 text-lg flex gap-6 flex-col"
       >
         <input
